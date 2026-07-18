@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: cf-studio
+    runtime: python
+    plan: free
+    buildCommand: "echo no build needed"
+    startCommand: "python main.py --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_MODEL
+        value: deepseek/deepseek-chat-v3-0324:free

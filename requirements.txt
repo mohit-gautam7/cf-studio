@@ -1,0 +1,2 @@
+# CF Studio has no Python dependencies — standard library only.
+# This file exists so hosting platforms auto-detect the Python runtime.
