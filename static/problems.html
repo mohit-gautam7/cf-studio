@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Problems — CF Studio</title>
+<link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+<div id="nav"></div>
+<div class="page">
+  <div class="card" style="margin-bottom:14px">
+    <div class="row">
+      <input id="q" placeholder="search title or tag…" style="flex:1">
+      <select id="min-r"><option value="">min rating</option></select>
+      <select id="max-r"><option value="">max rating</option></select>
+      <input id="imp-url" placeholder="or paste a Codeforces URL…" style="flex:1">
+      <button class="accent" id="imp-btn">Import</button>
+    </div>
+  </div>
+  <div class="card">
+    <table class="list" id="tbl">
+      <thead><tr><th></th><th>Problem</th><th>Rating</th><th>Tags</th><th>Attempts</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/ui.js"></script>
+<script src="/static/js/problems.js"></script>
+</body>
+</html>

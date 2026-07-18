@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CF Studio</title>
+<link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+<div id="nav"></div>
+<div class="page">
+  <div class="grid cards3" id="stats"></div>
+  <div class="grid cols2" style="margin-top:14px">
+    <div class="card"><h3>Recent problems</h3><div id="recent" class="muted">—</div></div>
+    <div class="card"><h3>Weak topics</h3><div id="topics" class="muted">—</div></div>
+  </div>
+  <div class="grid cols2" style="margin-top:14px">
+    <div class="card"><h3>Bookmarks</h3><div id="bookmarks" class="muted">—</div></div>
+    <div class="card"><h3>Codeforces rating</h3><div id="rating" class="muted">—</div></div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <h3>Import a Codeforces problem</h3>
+    <div class="row">
+      <input id="imp-url" style="flex:1" placeholder="https://codeforces.com/problemset/problem/4/A">
+      <button class="accent" id="imp-btn">Open in CF Studio</button>
+    </div>
+    <p class="muted small" style="margin-bottom:0">Paste any problemset/contest problem URL — statement, samples, tags and limits are pulled in.</p>
+  </div>
+</div>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/ui.js"></script>
+<script src="/static/js/dashboard.js"></script>
+</body>
+</html>

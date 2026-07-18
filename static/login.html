@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in — CF Studio</title>
+<link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="card auth-card">
+    <div class="auth-title">⚡ CF <em>Studio</em></div>
+    <p class="muted small" style="text-align:center">The AI-first competitive programming workspace</p>
+    <div id="form"></div>
+  </div>
+</div>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/ui.js"></script>
+<script>
+let mode = "login";
+function draw() {
+  const f = document.getElementById("form");
+  f.innerHTML = "";
+  const email = el("input", { type: "email", placeholder: "email", autocomplete: "username" });
+  const pass = el("input", { type: "password", placeholder: "password (6+ chars)", autocomplete: "current-password" });
+  const handle = el("input", { type: "text", placeholder: "Codeforces handle (optional)" });
+  const btn = el("button", { class: "primary" }, mode === "login" ? "Log in" : "Create account");
+  const swap = el("a", { href: "#", class: "small" }, mode === "login" ? "No account? Register" : "Have an account? Log in");
+  swap.onclick = (e) => { e.preventDefault(); mode = mode === "login" ? "register" : "login"; draw(); };
+  async function submit() {
+    busy(btn, true);
+    try {
+      const body = { email: email.value, password: pass.value };
+      if (mode === "register") body.handle = handle.value;
+      const r = await API.post("/api/" + mode, body);
+      API.setSession(r.token, r.user);
+      location.href = "/";
+    } catch (err) { toast(err.message, true); busy(btn, false); }
+  }
+  btn.onclick = submit;
+  pass.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
+  f.append(email, pass);
+  if (mode === "register") f.append(handle);
+  f.append(btn, el("div", { style: "text-align:center;margin-top:10px" }, swap));
+}
+if (API.token()) location.href = "/"; else draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Problem — CF Studio</title>
+<link rel="stylesheet" href="/static/css/app.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+</head>
+<body>
+<div class="ws">
+  <div class="ws-head">
+    <a href="/problems" title="all problems">←</a>
+    <span class="title" id="p-title">Loading…</span>
+    <span id="p-rating"></span>
+    <span id="p-limits" class="muted small"></span>
+    <span id="p-cf-link"></span>
+    <div class="spacer" style="flex:1"></div>
+    <button class="star" id="bm-btn" title="bookmark">★</button>
+    <select id="lang-sel" title="language"></select>
+    <select id="theme-sel" title="editor theme">
+      <option value="cf-dark">CF Dark</option>
+      <option value="vs-dark">VS Dark</option>
+      <option value="vs">Light</option>
+      <option value="hc-black">High Contrast</option>
+    </select>
+    <button id="copy-btn" title="copy code for Codeforces submit">📋 Copy</button>
+    <button class="primary" id="run-btn" title="Ctrl+Enter">▶ Run</button>
+    <button class="accent" id="ai-toggle">✨ AI</button>
+  </div>
+  <div class="ws-main">
+    <div class="ws-left" id="left-pane">
+      <div class="tabs" id="left-tabs"></div>
+      <div class="tab-body" id="left-body"></div>
+    </div>
+    <div class="ws-divider" id="divider"></div>
+    <div class="ws-right">
+      <div class="ws-editor" id="editor"></div>
+      <div class="ws-bottom" id="bottom">
+        <div class="tabs" id="bottom-tabs"></div>
+        <div class="tab-body" id="bottom-body"></div>
+      </div>
+    </div>
+    <div class="ws-ai" id="ai-pane">
+      <div class="ai-actions" id="ai-actions"></div>
+      <div class="ai-log" id="ai-log"></div>
+      <div class="ai-input">
+        <textarea id="ai-text" placeholder="Ask about this problem or your code… (Enter to send)"></textarea>
+        <button class="primary" id="ai-send">➤</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/ui.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+<script src="/static/js/workspace.js"></script>
+</body>
+</html>
