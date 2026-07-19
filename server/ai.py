@@ -1,10 +1,17 @@
-"""AI features over any OpenAI-compatible API (OpenRouter, Groq, NVIDIA NIM,
-DeepSeek, Ollama, ...). Configured entirely by env:
+"""AI features with automatic multi-provider failover.
 
-  AI_BASE_URL  default https://openrouter.ai/api/v1
-  AI_API_KEY   your key (free keys: openrouter.ai, console.groq.com, build.nvidia.com)
-  AI_MODEL     default nvidia/nemotron-3-ultra-550b-a55b:free
-  AI_MOCK=1    canned offline responses (used by the test suite)
+Put ANY OR ALL keys in .env — requests go to the best model first (largest
+context / strongest reasoning) and fall through to the next provider on any
+error (rate limit, retired model, outage):
+
+  1. custom     AI_BASE_URL + AI_MODEL (e.g. local Ollama) — used first when set
+  2. OpenRouter OPENROUTER_API_KEY -> nvidia/nemotron-3-ultra-550b-a55b:free (1M ctx)
+  3. NVIDIA NIM NVIDIA_API_KEY     -> nvidia/nemotron-3-ultra-550b-a55b
+  4. Groq       GROQ_API_KEY       -> openai/gpt-oss-120b (131K ctx, fastest)
+
+Back-compat: a plain AI_API_KEY (with no or an OpenRouter AI_BASE_URL) is
+treated as the OpenRouter key. Override any default with OPENROUTER_MODEL,
+NVIDIA_MODEL, GROQ_MODEL. AI_MOCK=1 gives canned offline replies (tests).
 
 Every feature sends the full context bundle: statement, constraints, current
 code, compiler output, failing tests — never the code alone.
@@ -12,11 +19,14 @@ code, compiler output, failing tests — never the code alone.
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.request
 
 DEFAULT_BASE = "https://openrouter.ai/api/v1"
-DEFAULT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
+
+_COOLDOWN_SECONDS = 90
+_cooldown = {}  # provider name -> unix time until which it is deprioritized
 
 HINT_LEVELS = {
     1: "a tiny nudge (one sentence, no algorithm names, no spoilers)",
@@ -31,42 +41,82 @@ class AIError(Exception):
     pass
 
 
+def providers():
+    """Configured providers in priority order (best model first)."""
+    out = []
+    base = (os.environ.get("AI_BASE_URL") or "").rstrip("/")
+    legacy_key = os.environ.get("AI_API_KEY", "")
+    if base and "openrouter.ai" not in base:
+        out.append({"name": "custom", "base": base, "key": legacy_key,
+                    "model": os.environ.get("AI_MODEL", "")})
+    or_key = os.environ.get("OPENROUTER_API_KEY") or (legacy_key if (not base or "openrouter.ai" in base) else "")
+    if or_key:
+        out.append({"name": "openrouter", "base": DEFAULT_BASE, "key": or_key,
+                    "model": os.environ.get("OPENROUTER_MODEL", "nvidia/nemotron-3-ultra-550b-a55b:free")})
+    if os.environ.get("NVIDIA_API_KEY"):
+        out.append({"name": "nvidia", "base": "https://integrate.api.nvidia.com/v1",
+                    "key": os.environ["NVIDIA_API_KEY"],
+                    "model": os.environ.get("NVIDIA_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")})
+    if os.environ.get("GROQ_API_KEY"):
+        out.append({"name": "groq", "base": "https://api.groq.com/openai/v1",
+                    "key": os.environ["GROQ_API_KEY"],
+                    "model": os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")})
+    return out
+
+
 def is_configured():
-    return bool(os.environ.get("AI_API_KEY")) or os.environ.get("AI_MOCK") == "1"
+    return bool(providers()) or os.environ.get("AI_MOCK") == "1"
+
+
+def _call_provider(p, messages, temperature, max_tokens):
+    payload = {"model": p["model"], "messages": messages,
+               "temperature": temperature, "max_tokens": max_tokens}
+    headers = {"Content-Type": "application/json"}
+    if p["key"]:
+        headers["Authorization"] = "Bearer " + p["key"]
+    if p["name"] == "openrouter":
+        headers["HTTP-Referer"] = "https://github.com/mohit-gautam7/cf-studio"
+        headers["X-Title"] = "CF Studio"
+    req = urllib.request.Request(p["base"] + "/chat/completions",
+                                 data=json.dumps(payload).encode(), headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=180) as r:
+            data = json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        raise AIError("HTTP %d: %s" % (e.code, e.read().decode(errors="replace")[:300]))
+    except Exception as e:
+        raise AIError("unreachable: %s" % e)
+    try:
+        content = data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError):
+        raise AIError("unexpected response: %s" % json.dumps(data)[:300])
+    # reasoning models may inline their thinking; keep only the final answer
+    content = re.sub(r"<think>.*?</think>", "", content or "", flags=re.DOTALL).strip()
+    if not content:
+        raise AIError("empty reply from %s" % p["model"])
+    return content
 
 
 def chat(messages, temperature=0.4, max_tokens=3000):
     if os.environ.get("AI_MOCK") == "1":
         return _mock_reply(messages)
-    key = os.environ.get("AI_API_KEY")
-    if not key:
-        raise AIError("AI is not configured. Set AI_API_KEY (free keys: https://openrouter.ai/keys or https://console.groq.com/keys) and restart.")
-    base = os.environ.get("AI_BASE_URL", DEFAULT_BASE).rstrip("/")
-    model = os.environ.get("AI_MODEL", DEFAULT_MODEL)
-    payload = {"model": model, "messages": messages, "temperature": temperature, "max_tokens": max_tokens}
-    req = urllib.request.Request(
-        base + "/chat/completions",
-        data=json.dumps(payload).encode(),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + key,
-            "HTTP-Referer": "https://github.com/cf-studio",
-            "X-Title": "CF Studio",
-        },
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=120) as r:
-            data = json.loads(r.read().decode())
-    except urllib.error.HTTPError as e:
-        raise AIError("AI provider HTTP %d: %s" % (e.code, e.read().decode(errors="replace")[:400]))
-    except Exception as e:
-        raise AIError("AI provider unreachable: %s" % e)
-    try:
-        content = data["choices"][0]["message"]["content"]
-    except (KeyError, IndexError):
-        raise AIError("unexpected AI response: %s" % json.dumps(data)[:400])
-    # reasoning models may inline their thinking; keep only the final answer
-    return re.sub(r"<think>.*?</think>", "", content or "", flags=re.DOTALL).strip()
+    ps = providers()
+    if not ps:
+        raise AIError("No AI keys configured. Put OPENROUTER_API_KEY / GROQ_API_KEY / NVIDIA_API_KEY "
+                      "in .env (free keys: openrouter.ai/keys, console.groq.com/keys, build.nvidia.com) and restart.")
+    now = time.time()
+    ordered = [p for p in ps if _cooldown.get(p["name"], 0) <= now] + \
+              [p for p in ps if _cooldown.get(p["name"], 0) > now]
+    errors = []
+    for p in ordered:
+        try:
+            reply = _call_provider(p, messages, temperature, max_tokens)
+            _cooldown.pop(p["name"], None)
+            return reply
+        except AIError as e:
+            _cooldown[p["name"]] = time.time() + _COOLDOWN_SECONDS
+            errors.append("%s (%s): %s" % (p["name"], p["model"], e))
+    raise AIError("all AI providers failed — " + " | ".join(errors)[:800])
 
 
 def _balanced_parse(text, start):
