@@ -72,7 +72,7 @@ javascript:location='http://localhost:8000/import?url='+encodeURIComponent(locat
 
 Paste any `codeforces.com/problemset/problem/...` or `/contest/.../problem/...` URL. The statement, samples, limits, tags and rating are parsed and cached locally. Be polite: problems are fetched once and cached; CF Studio never hammers Codeforces.
 
-**No automated submissions.** Submitting through scripts violates Codeforces rules, so the flow is: 📋 Copy code → submit on Codeforces yourself → import your verdicts by handle (public API, read-only).
+**No automated submissions.** Submitting through scripts violates Codeforces rules. Instead, **🚀 Submit on CF** copies your code to the clipboard and opens that exact problem's Codeforces submit page — you pick the language, paste (Ctrl+V) and click submit yourself. Then import your verdicts by handle (public API, read-only).
 
 ## Configuration (.env)
 
@@ -95,9 +95,16 @@ python -m unittest discover -s tests
 
 48 tests: statement parser (fixture), verdict engine, AI JSON extraction, stress loop (real subprocess execution), and a full-stack HTTP e2e (register → run → generate tests → validate → stress → chat → dashboard).
 
-## Deploying (optional)
+## Going live (free)
 
-CF Studio is local-first. A `render.yaml` is included for a free Render.com web service (note: free-tier disk is ephemeral — your SQLite data resets on redeploys; fine for demos, keep real practice data local).
+CF Studio is local-first, but you can put it on a public URL in ~5 minutes with Render's free tier (the included `render.yaml` does the setup):
+
+1. Go to [render.com](https://render.com) → sign in with GitHub.
+2. **New → Blueprint** → pick your `cf-studio` repository → Render reads `render.yaml` automatically.
+3. When prompted for environment variables, paste your `OPENROUTER_API_KEY` (and optionally `GROQ_API_KEY` / `NVIDIA_API_KEY`).
+4. Deploy — you get a URL like `https://cf-studio.onrender.com`.
+
+Free-tier caveats: the instance sleeps when idle (first visit takes ~1 min to wake), and the disk is ephemeral — accounts, notes and imported problems reset whenever it redeploys or restarts. Anyone with the URL can register and use *your* AI keys, so share it with friends, not the world. For serious daily use, local (`python main.py`) is faster and keeps your data.
 
 ## Architecture
 
