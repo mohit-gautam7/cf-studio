@@ -1,9 +1,13 @@
-"""SQLite storage. Stdlib only; WAL mode; one connection per operation."""
+"""Storage. Local SQLite by default; hosted Turso (libSQL over HTTP) when
+TURSO_DATABASE_URL + TURSO_AUTH_TOKEN are set — that keeps data alive across
+redeploys on ephemeral hosts. Stdlib only either way."""
 import json
 import os
 import sqlite3
 import time
 from contextlib import contextmanager
+
+from . import remote_db
 
 DATA_DIR = os.environ.get("CFSTUDIO_DATA", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data"))
 DB_PATH = os.path.join(DATA_DIR, "cfstudio.db")
@@ -97,7 +101,14 @@ CREATE INDEX IF NOT EXISTS idx_ai_tests ON ai_tests(user_id, problem_id);
 """
 
 
+def mode():
+    return "turso" if remote_db.is_configured() else "sqlite"
+
+
 def init_db():
+    if remote_db.is_configured():
+        remote_db.RemoteConnection().executescript(SCHEMA)
+        return
     os.makedirs(DATA_DIR, exist_ok=True)
     with connect() as con:
         con.executescript(SCHEMA)
@@ -105,6 +116,9 @@ def init_db():
 
 @contextmanager
 def connect():
+    if remote_db.is_configured():
+        yield remote_db.RemoteConnection()
+        return
     con = sqlite3.connect(DB_PATH, timeout=15)
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA journal_mode=WAL")

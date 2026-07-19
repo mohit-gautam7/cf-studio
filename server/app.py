@@ -67,6 +67,7 @@ def h_health(ctx):
     return {"ok": True, "ai_configured": ai.is_configured(),
             "ai_providers": [{"name": p["name"], "model": p["model"]} for p in ai.providers()],
             "executor": os.environ.get("EXECUTOR", "auto"),
+            "db": db.mode(),
             "languages": list(LANGUAGES.keys())}
 
 
