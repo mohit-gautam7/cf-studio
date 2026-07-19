@@ -113,7 +113,15 @@ CF Studio is local-first, but you can put it on a public URL in ~5 minutes with 
 3. When prompted for environment variables, paste your `OPENROUTER_API_KEY` (and optionally `GROQ_API_KEY` / `NVIDIA_API_KEY`).
 4. Deploy — you get a URL like `https://cf-studio.onrender.com`.
 
-Free-tier caveats: the instance sleeps when idle (first visit takes ~1 min to wake), and the disk is ephemeral — accounts, notes and imported problems reset whenever it redeploys or restarts. Anyone with the URL can register and use *your* AI keys, so share it with friends, not the world. For serious daily use, local (`python main.py`) is faster and keeps your data.
+Free-tier caveats: the instance sleeps when idle (first visit takes ~1 min to wake), and anyone with the URL can register and use *your* AI keys — share it with friends, not the world.
+
+**Persistent accounts/data for the hosted site (recommended):** Render's free disk is ephemeral — without this step, accounts and imports reset on every redeploy. Fix it in ~3 minutes with a free [Turso](https://turso.tech) database (hosted SQLite):
+
+1. Sign up at turso.tech (free plan) → **Create Database** (pick a region near your Render region).
+2. Copy the database URL (`libsql://<db>-<org>.turso.io`) and create an auth token (Database → Tokens, or `turso db tokens create <db>`).
+3. In Render → your service → **Environment**, set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`, then redeploy.
+
+`/api/health` shows `"db": "turso"` when active. Locally you don't need any of this — the `data/` folder already persists.
 
 ## Architecture
 
