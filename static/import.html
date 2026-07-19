@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Importing… — CF Studio</title>
+<link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="card auth-card" style="text-align:center">
+    <div class="auth-title">⚡ CF <em>Studio</em></div>
+    <p id="status" class="muted">Importing problem from Codeforces…</p>
+    <div id="spin"><span class="spin"></span></div>
+  </div>
+</div>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/ui.js"></script>
+<script>
+(async () => {
+  const url = new URLSearchParams(location.search).get("url") || "";
+  const status = document.getElementById("status");
+  if (!API.token()) { location.href = "/login"; return; }
+  if (!url) { location.href = "/problems"; return; }
+  try {
+    const r = await API.post("/api/problems/import", { url });
+    status.textContent = "Imported — opening workspace…";
+    location.href = "/p/" + r.problem_id;
+  } catch (e) {
+    document.getElementById("spin").remove();
+    status.textContent = "Import failed: " + e.message;
+    status.className = "";
+    document.querySelector(".auth-card").append(
+      el("a", { href: "/problems", class: "small" }, "back to problems"));
+  }
+})();
+</script>
+</body>
+</html>
