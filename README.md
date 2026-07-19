@@ -27,13 +27,14 @@ Grab a free key from **[openrouter.ai/keys](https://openrouter.ai/keys)** and pu
 AI_API_KEY=sk-or-v1-...
 ```
 
-That's it — the default model is a free one. Any OpenAI-compatible provider works:
+That's it — the default model (`nvidia/nemotron-3-ultra-550b-a55b:free`, a 550B frontier-reasoning model, $0 on OpenRouter) is already set. Any OpenAI-compatible provider works:
 
-| Provider | AI_BASE_URL | Example model (free tier) |
+| Provider | AI_BASE_URL | Example model (free tier, verified Jul 2026) |
 |---|---|---|
-| OpenRouter (default) | `https://openrouter.ai/api/v1` | `deepseek/deepseek-chat-v3-0324:free`, `qwen/qwen3-32b:free`, `meta-llama/llama-3.3-70b-instruct:free` |
-| Groq | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
-| Ollama (fully local) | `http://localhost:11434/v1` | `qwen2.5-coder` |
+| OpenRouter (default) | `https://openrouter.ai/api/v1` | `nvidia/nemotron-3-ultra-550b-a55b:free` (best), `nvidia/nemotron-3-super-120b-a12b:free` (faster), `google/gemma-4-31b-it:free` |
+| Groq | `https://api.groq.com/openai/v1` | `openai/gpt-oss-120b`, `llama-3.3-70b-versatile` |
+| NVIDIA NIM | `https://integrate.api.nvidia.com/v1` | key at build.nvidia.com; model id from the model page |
+| Ollama (fully local) | `http://localhost:11434/v1` | `qwen2.5-coder` — no key needed |
 
 Free model names change over time — check your provider's list and set `AI_MODEL` accordingly.
 
@@ -68,7 +69,7 @@ Paste any `codeforces.com/problemset/problem/...` or `/contest/.../problem/...` 
 |---|---|---|
 | `AI_API_KEY` | — | key for your AI provider |
 | `AI_BASE_URL` | OpenRouter | any OpenAI-compatible endpoint |
-| `AI_MODEL` | a free DeepSeek | model name at that provider |
+| `AI_MODEL` | Nemotron 3 Ultra (free) | model name at that provider |
 | `PISTON_URL` | public Piston | point at a self-hosted Piston for speed |
 | `EXECUTOR` | `piston` | `local` runs code with your local toolchain — **unsandboxed, your own code only** |
 | `PORT` / `HOST` | 8000 / 127.0.0.1 | server bind |
