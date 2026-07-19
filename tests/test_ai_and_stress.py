@@ -78,5 +78,88 @@ class TestStress(unittest.TestCase):
         self.assertEqual(res["kind"], "RE")
 
 
+class TestProviderChain(unittest.TestCase):
+    KEYS = ("AI_MOCK", "AI_BASE_URL", "AI_MODEL", "AI_API_KEY",
+            "OPENROUTER_API_KEY", "GROQ_API_KEY", "NVIDIA_API_KEY")
+
+    def setUp(self):
+        self._saved = {k: os.environ.get(k) for k in self.KEYS}
+        for k in self.KEYS:
+            os.environ.pop(k, None)
+        ai._cooldown.clear()
+
+    def tearDown(self):
+        for k, v in self._saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        ai._cooldown.clear()
+
+    def test_priority_order_and_defaults(self):
+        os.environ["OPENROUTER_API_KEY"] = "or-key"
+        os.environ["GROQ_API_KEY"] = "groq-key"
+        os.environ["NVIDIA_API_KEY"] = "nv-key"
+        ps = ai.providers()
+        self.assertEqual([p["name"] for p in ps], ["openrouter", "nvidia", "groq"])
+        self.assertIn("nemotron-3-ultra", ps[0]["model"])
+        self.assertTrue(ps[0]["model"].endswith(":free"))
+        self.assertEqual(ps[2]["model"], "openai/gpt-oss-120b")
+
+    def test_legacy_key_maps_to_openrouter(self):
+        os.environ["AI_API_KEY"] = "sk-or-legacy"
+        ps = ai.providers()
+        self.assertEqual(ps[0]["name"], "openrouter")
+        self.assertEqual(ps[0]["key"], "sk-or-legacy")
+
+    def test_custom_base_used_first(self):
+        os.environ["AI_BASE_URL"] = "http://localhost:11434/v1"
+        os.environ["AI_MODEL"] = "qwen2.5-coder"
+        os.environ["GROQ_API_KEY"] = "g"
+        self.assertEqual([p["name"] for p in ai.providers()], ["custom", "groq"])
+
+    def test_failover_and_cooldown(self):
+        os.environ["OPENROUTER_API_KEY"] = "a"
+        os.environ["GROQ_API_KEY"] = "b"
+        calls = []
+
+        def fake(p, messages, temperature, max_tokens):
+            calls.append(p["name"])
+            if p["name"] == "openrouter":
+                raise ai.AIError("HTTP 429: rate limited")
+            return "answer from " + p["name"]
+
+        orig = ai._call_provider
+        ai._call_provider = fake
+        try:
+            self.assertEqual(ai.chat([{"role": "user", "content": "hi"}]), "answer from groq")
+            self.assertEqual(calls, ["openrouter", "groq"])
+            calls.clear()  # openrouter is cooling down -> groq goes first now
+            ai.chat([{"role": "user", "content": "hi"}])
+            self.assertEqual(calls[0], "groq")
+        finally:
+            ai._call_provider = orig
+
+    def test_all_providers_failing_raises_combined_error(self):
+        os.environ["GROQ_API_KEY"] = "b"
+
+        def boom(p, messages, temperature, max_tokens):
+            raise ai.AIError("down")
+
+        orig = ai._call_provider
+        ai._call_provider = boom
+        try:
+            with self.assertRaises(ai.AIError) as cm:
+                ai.chat([{"role": "user", "content": "hi"}])
+            self.assertIn("groq", str(cm.exception))
+        finally:
+            ai._call_provider = orig
+
+    def test_no_keys_error_is_actionable(self):
+        with self.assertRaises(ai.AIError) as cm:
+            ai.chat([{"role": "user", "content": "hi"}])
+        self.assertIn("OPENROUTER_API_KEY", str(cm.exception))
+
+
 if __name__ == "__main__":
     unittest.main()
