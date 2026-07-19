@@ -1,8 +1,15 @@
 /* Problem workspace: statement, Monaco editor, tests, AI panel, stress, notes */
 const PID = +location.pathname.split("/")[2];
 let P = null, editor = null, aiTests = [], customTests = [], lastResult = null, noteTimer = null;
-let lastStress = null;
+let lastStress = null, serverDraft = null, draftTimer = null;
 const busyFlags = { gen: false, validate: false, stress: false };
+
+function scheduleDraftSave(immediate) {
+  clearTimeout(draftTimer);
+  const save = () => API.post("/api/draft", { problem_id: PID, language: lang(), code: getCode() }).catch(() => {});
+  if (immediate) return save();
+  draftTimer = setTimeout(save, 2500);
+}
 
 const LANGS = [
   ["cpp", "C++17"], ["python", "Python 3"], ["java", "Java"], ["javascript", "JavaScript"],
@@ -32,8 +39,12 @@ async function boot() {
   for (const [k, label] of LANGS) sel.append(el("option", { value: k }, label));
   sel.value = localStorage.getItem("cfs_lang") || "cpp";
   try {
-    const [pr, tr] = await Promise.all([API.get("/api/problems/" + PID), API.get("/api/tests?problem_id=" + PID)]);
-    P = pr.problem; aiTests = tr.tests;
+    const [pr, tr, dr] = await Promise.all([
+      API.get("/api/problems/" + PID),
+      API.get("/api/tests?problem_id=" + PID),
+      API.get(`/api/draft?problem_id=${PID}&language=${sel.value}`).catch(() => ({ code: null })),
+    ]);
+    P = pr.problem; aiTests = tr.tests; serverDraft = dr.code;
   } catch (e) { document.getElementById("p-title").textContent = e.message; return; }
   customTests = JSON.parse(localStorage.getItem("cfs_custom_" + PID) || "[]");
   if (!customTests.length) customTests = [{ input: "", expected: "" }];
@@ -60,6 +71,7 @@ async function boot() {
     submitBtn.classList.remove("hidden");
     submitBtn.onclick = () => {
       copyText(getCode(), "Code copied — with the CF Studio extension the form fills itself; review and click Submit");
+      API.post("/api/submitted", { problem_id: PID, language: lang(), code: getCode() }).catch(() => {});
       const payload = encodeURIComponent(btoa(unescape(encodeURIComponent(
         JSON.stringify({ code: getCode(), lang: lang() })))));
       window.open(`https://codeforces.com/contest/${P.cf_contest_id}/submit?submittedProblemIndex=${P.cf_index}#cfstudio=${payload}`,
@@ -69,6 +81,9 @@ async function boot() {
   document.getElementById("run-btn").onclick = () => runTests("samples");
   document.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runTests("samples"); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      e.preventDefault(); scheduleDraftSave(true); toast("code synced to your account");
+    }
   });
 }
 
@@ -81,17 +96,22 @@ function initEditor() {
       rules: [], colors: { "editor.background": "#0d1117", "editorGutter.background": "#0d1117" },
     });
     editor = monaco.editor.create(document.getElementById("editor"), {
-      value: localStorage.getItem(codeKey()) || TEMPLATES[lang()] || "",
+      value: serverDraft || localStorage.getItem(codeKey()) || TEMPLATES[lang()] || "",
       language: MONACO_LANG[lang()], theme: "cf-dark",
       fontSize: 14, minimap: { enabled: false }, automaticLayout: true,
       scrollBeyondLastLine: false, padding: { top: 10 },
     });
-    editor.onDidChangeModelContent(() => localStorage.setItem(codeKey(), getCode()));
+    editor.onDidChangeModelContent(() => {
+      localStorage.setItem(codeKey(), getCode());
+      scheduleDraftSave();  // synced to your account -> same code on any device
+    });
     const langSel = document.getElementById("lang-sel");
-    langSel.addEventListener("change", () => {
+    langSel.addEventListener("change", async () => {
       localStorage.setItem("cfs_lang", lang());
       monaco.editor.setModelLanguage(editor.getModel(), MONACO_LANG[lang()]);
-      editor.setValue(localStorage.getItem(codeKey()) || TEMPLATES[lang()] || "");
+      let draft = null;
+      try { draft = (await API.get(`/api/draft?problem_id=${PID}&language=${lang()}`)).code; } catch (e) { /* offline */ }
+      editor.setValue(draft || localStorage.getItem(codeKey()) || TEMPLATES[lang()] || "");
     });
     document.getElementById("theme-sel").addEventListener("change", (e) => monaco.editor.setTheme(e.target.value));
   });
@@ -205,16 +225,32 @@ async function drawNotes(body) {
 async function drawSubmissions(body) {
   let data;
   try { data = await API.get("/api/submissions?problem_id=" + PID); } catch (e) { body.textContent = e.message; return; }
-  body.append(el("b", {}, "Local runs"));
+  body.append(el("b", {}, "Local runs & submissions"));
   const t = el("table", { class: "list" },
-    el("thead", {}, el("tr", {}, el("th", {}, "when"), el("th", {}, "kind"), el("th", {}, "lang"), el("th", {}, "verdict"), el("th", {}, "tests"))));
+    el("thead", {}, el("tr", {}, el("th", {}, "when"), el("th", {}, "kind"), el("th", {}, "lang"), el("th", {}, "verdict"), el("th", {}, "tests"), el("th", {}, ""))));
   const tb = el("tbody");
   for (const r of data.runs) {
+    const restore = el("button", { class: "copy-mini", title: "load this code back into the editor" }, "↩ code");
+    restore.onclick = async () => {
+      try {
+        const { code, language } = await API.get(`/api/runs/${r.id}/code`);
+        const sel = document.getElementById("lang-sel");
+        if (language && sel.value !== language && LANGS.some(([k]) => k === language)) {
+          sel.value = language;
+          localStorage.setItem("cfs_lang", language);
+          monaco.editor.setModelLanguage(editor.getModel(), MONACO_LANG[language]);
+        }
+        editor.setValue(code);
+        scheduleDraftSave();
+        toast("code from that run restored into the editor");
+      } catch (e) { toast(e.message, true); }
+    };
     tb.append(el("tr", {},
       el("td", { class: "muted small" }, fmtAgo(r.created_at)), el("td", {}, r.kind), el("td", {}, r.language),
-      el("td", {}, verdictChip(r.verdict)), el("td", { class: "muted small" }, `${r.passed}/${r.total}`)));
+      el("td", {}, verdictChip(r.verdict)), el("td", { class: "muted small" }, r.kind === "submit" ? "→ CF" : `${r.passed}/${r.total}`),
+      el("td", {}, restore)));
   }
-  if (!data.runs.length) tb.append(el("tr", {}, el("td", { colspan: 5, class: "muted" }, "no runs yet")));
+  if (!data.runs.length) tb.append(el("tr", {}, el("td", { colspan: 6, class: "muted" }, "no runs yet")));
   t.append(tb); body.append(t);
 
   body.append(el("div", { style: "margin-top:14px" }, el("b", {}, "Codeforces verdicts ")));
