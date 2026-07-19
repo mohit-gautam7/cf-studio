@@ -55,6 +55,15 @@ async function boot() {
 
   document.getElementById("copy-btn").onclick = () =>
     copyText(getCode(), "Code copied — paste it into the Codeforces submit page");
+  const submitBtn = document.getElementById("submit-btn");
+  if (P.cf_contest_id && P.cf_index) {
+    submitBtn.classList.remove("hidden");
+    submitBtn.onclick = () => {
+      copyText(getCode(), "Code copied — pick your language on Codeforces, paste (Ctrl+V) and submit");
+      window.open(`https://codeforces.com/contest/${P.cf_contest_id}/submit?submittedProblemIndex=${P.cf_index}`,
+        "_blank", "noopener");
+    };
+  }
   document.getElementById("run-btn").onclick = () => runTests("samples");
   document.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runTests("samples"); }
