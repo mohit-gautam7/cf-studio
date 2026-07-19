@@ -195,7 +195,7 @@ def h_tests_list(ctx):
 
 def h_tests_generate(ctx):
     pid = int(ctx["body"].get("problem_id") or 0)
-    count = int(ctx["body"].get("count") or 12)
+    count = int(ctx["body"].get("count") or 8)
     p = _get_problem(pid)
     try:
         tests = ai.generate_tests(p, ctx["body"].get("code"), ctx["body"].get("language"),
@@ -471,7 +471,7 @@ ROUTES = [
 ]
 _COMPILED = [(m, re.compile(p), h, a) for m, p, h, a in ROUTES]
 
-PAGES = {"/": "index.html", "/login": "login.html", "/problems": "problems.html"}
+PAGES = {"/": "index.html", "/login": "login.html", "/problems": "problems.html", "/import": "import.html"}
 MIME = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
         ".js": "application/javascript; charset=utf-8", ".svg": "image/svg+xml",
         ".png": "image/png", ".ico": "image/x-icon", ".json": "application/json"}

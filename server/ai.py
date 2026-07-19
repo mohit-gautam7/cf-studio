@@ -97,13 +97,17 @@ def _call_provider(p, messages, temperature, max_tokens):
     return content
 
 
-def chat(messages, temperature=0.4, max_tokens=3000):
+def chat(messages, temperature=0.4, max_tokens=3000, prefer="smart"):
+    """prefer='smart' keeps the strongest model first; prefer='fast' puts Groq
+    (~500 tok/s) first for bulk generation tasks like test generation."""
     if os.environ.get("AI_MOCK") == "1":
         return _mock_reply(messages)
     ps = providers()
     if not ps:
         raise AIError("No AI keys configured. Put OPENROUTER_API_KEY / GROQ_API_KEY / NVIDIA_API_KEY "
                       "in .env (free keys: openrouter.ai/keys, console.groq.com/keys, build.nvidia.com) and restart.")
+    if prefer == "fast":
+        ps = sorted(ps, key=lambda p: 0 if p["name"] == "custom" else (1 if p["name"] == "groq" else 2))
     now = time.time()
     ordered = [p for p in ps if _cooldown.get(p["name"], 0) <= now] + \
               [p for p in ps if _cooldown.get(p["name"], 0) > now]
@@ -204,12 +208,12 @@ SYSTEM = ("You are the AI assistant inside CF Studio, a competitive programming 
           "When asked for code, produce complete compilable code.")
 
 
-def ask(context, instruction, temperature=0.4, max_tokens=3000, history=None):
+def ask(context, instruction, temperature=0.4, max_tokens=3000, history=None, prefer="smart"):
     msgs = [{"role": "system", "content": SYSTEM},
             {"role": "user", "content": context + "\n\n---\n\n" + instruction}]
     if history:
         msgs = [{"role": "system", "content": SYSTEM + "\n\nContext:\n" + context}] + history
-    return chat(msgs, temperature=temperature, max_tokens=max_tokens)
+    return chat(msgs, temperature=temperature, max_tokens=max_tokens, prefer=prefer)
 
 
 # ---------------- feature prompts ----------------
@@ -227,7 +231,7 @@ def generate_tests(problem, code=None, language=None, count=12):
         "expected output, still include the test with your best attempt." % count
     )
     reply = chat([{"role": "system", "content": SYSTEM}, {"role": "user", "content": ctx + "\n\n" + instruction}],
-                 temperature=0.7, max_tokens=4000)
+                 temperature=0.7, max_tokens=2500, prefer="fast")
     tests = extract_json(reply)
     out = []
     for t in tests if isinstance(tests, list) else []:
@@ -270,7 +274,8 @@ def explain(problem, audience):
 def brute_force(problem):
     ctx = build_context(problem)
     reply = ask(ctx, "Write a CORRECT brute-force solution in Python 3 (clarity over speed; assume small inputs). "
-                     "Read from stdin, write to stdout. Reply with ONLY the code in a single ``` block.")
+                     "Read from stdin, write to stdout. Reply with ONLY the code in a single ``` block.",
+                prefer="fast")
     return _extract_code(reply)
 
 
@@ -280,7 +285,7 @@ def input_generator(problem, max_n=None):
     reply = ask(ctx, "Write a Python 3 RANDOM INPUT GENERATOR for this problem. It receives a seed as its first "
                      "command line argument (sys.argv[1]); use random.seed(that). Print ONLY a valid input for the "
                      "problem, matching the input format exactly." + size_note +
-                     " Reply with ONLY the code in a single ``` block.")
+                     " Reply with ONLY the code in a single ``` block.", prefer="fast")
     return _extract_code(reply)
 
 
