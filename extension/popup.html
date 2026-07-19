@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { background: #0d1117; color: #e6edf3; font: 13px system-ui, sans-serif; width: 290px; margin: 0; padding: 14px; }
+  h1 { font-size: 14px; margin: 0 0 10px; color: #ffa116; }
+  label { display: block; padding: 7px 9px; border: 1px solid #30363d; border-radius: 7px; margin-bottom: 7px; cursor: pointer; }
+  label:hover { border-color: #58a6ff; }
+  input[type=radio] { margin-right: 7px; accent-color: #ffa116; }
+  input[type=url] { width: 100%; box-sizing: border-box; background: #0b0f14; color: #e6edf3; border: 1px solid #30363d; border-radius: 6px; padding: 6px 8px; margin-top: 6px; }
+  .hint { color: #8b949e; font-size: 11.5px; margin-top: 8px; }
+  .saved { color: #3fb950; font-size: 11.5px; height: 14px; }
+</style>
+</head>
+<body>
+  <h1>⚡ CF Studio — server</h1>
+  <label><input type="radio" name="mode" value="hosted"> Website (cf-studio.onrender.com)</label>
+  <label><input type="radio" name="mode" value="local"> Local (http://localhost:8000)</label>
+  <label><input type="radio" name="mode" value="custom"> Custom
+    <input type="url" id="custom-url" placeholder="https://your-cf-studio.example.com">
+  </label>
+  <div class="saved" id="saved"></div>
+  <div class="hint">"Open in CF Studio" on problem pages sends imports to this server. Submit autofill works regardless.</div>
+  <script src="popup.js"></script>
+</body>
+</html>

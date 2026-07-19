@@ -3,7 +3,15 @@
    2) On submit pages opened from CF Studio (#cfstudio=... in the URL):
       fills your code and picks the language — you review and click Submit. */
 (function () {
-  const CF_STUDIO = "http://localhost:8000"; // change this if your CF Studio runs elsewhere (e.g. your Render URL)
+  const DEFAULT_SERVER = "https://cf-studio.onrender.com"; // switch servers via the extension's popup
+
+  function withServer(cb) {
+    try {
+      chrome.storage.sync.get({ server: DEFAULT_SERVER }, (d) => cb((d.server || DEFAULT_SERVER).replace(/\/+$/, "")));
+    } catch (e) {
+      cb(DEFAULT_SERVER);
+    }
+  }
 
   const LANG_MATCHERS = {
     cpp: [/G\+\+23/i, /G\+\+20/i, /G\+\+17/i, /G\+\+/i],
@@ -66,14 +74,14 @@
     banner("✅ Code filled from CF Studio — review it, then click Submit.");
   }
 
-  function addOpenButton() {
+  function addOpenButton(server) {
     const isProblemPage =
       /\/(problemset\/problem\/\d+\/[A-Z][0-9]?|(contest|gym)\/\d+\/problem\/[A-Z][0-9]?)/i.test(location.pathname);
     if (!isProblemPage || document.getElementById("cfstudio-open-btn")) return;
     const btn = document.createElement("a");
     btn.id = "cfstudio-open-btn";
     btn.textContent = "⚡ Open in CF Studio";
-    btn.href = CF_STUDIO + "/import?url=" + encodeURIComponent(location.href);
+    btn.href = server + "/import?url=" + encodeURIComponent(location.href);
     btn.target = "_blank";
     btn.rel = "noopener";
     Object.assign(btn.style, {
@@ -89,5 +97,5 @@
   }
 
   if (/\/submit/.test(location.pathname)) autofill();
-  else addOpenButton();
+  else withServer(addOpenButton);
 })();

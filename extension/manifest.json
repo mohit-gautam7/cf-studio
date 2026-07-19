@@ -1,8 +1,13 @@
 {
   "manifest_version": 3,
   "name": "CF Studio",
-  "version": "1.0",
-  "description": "Adds an 'Open in CF Studio' button on every Codeforces problem page.",
+  "version": "1.1",
+  "description": "Adds an 'Open in CF Studio' button on Codeforces problem pages and autofills the submit page.",
+  "permissions": ["storage"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "CF Studio settings"
+  },
   "content_scripts": [
     {
       "matches": ["https://codeforces.com/*", "https://*.codeforces.com/*"],
