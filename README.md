@@ -67,7 +67,9 @@ The `extension/` folder is a tiny Chrome/Brave/Edge extension that does two thin
 
 Install: open `chrome://extensions` (or `brave://extensions`) → enable *Developer mode* → *Load unpacked* → select the `extension/` folder. After pulling updates, hit ↻ on the extension card.
 
-**Sharing with a friend:** they clone this repo and run their own CF Studio (`python main.py`) plus load the same extension — it points at `http://localhost:8000`, i.e. *their* server and *their* AI keys. If instead you host one instance (see *Going live*), they just edit the `CF_STUDIO` constant at the top of `extension/content.js` to your public URL and register an account there — but then everyone shares your AI quota. The autofill part works for anyone with the extension, either way.
+**Choosing the server:** click the extension's icon — a popup lets you pick the hosted website (default: `cf-studio.onrender.com`), `localhost:8000`, or any custom URL. The ⚡ button sends imports to whichever server is selected (you need an account there); submit autofill works regardless.
+
+**Sharing with a friend:** send them the repo link — they load the same `extension/` folder, keep the default hosted server, and register an account on your site. Zero setup, but they share your AI quota (and free-tier data resets on redeploys). Friends who want their own private setup instead clone the repo, run `python main.py` with their own free keys, and flip the popup to *Local*.
 
 No-install alternative — save this as a bookmarklet:
 
