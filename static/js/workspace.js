@@ -59,8 +59,10 @@ async function boot() {
   if (P.cf_contest_id && P.cf_index) {
     submitBtn.classList.remove("hidden");
     submitBtn.onclick = () => {
-      copyText(getCode(), "Code copied — pick your language on Codeforces, paste (Ctrl+V) and submit");
-      window.open(`https://codeforces.com/contest/${P.cf_contest_id}/submit?submittedProblemIndex=${P.cf_index}`,
+      copyText(getCode(), "Code copied — with the CF Studio extension the form fills itself; review and click Submit");
+      const payload = encodeURIComponent(btoa(unescape(encodeURIComponent(
+        JSON.stringify({ code: getCode(), lang: lang() })))));
+      window.open(`https://codeforces.com/contest/${P.cf_contest_id}/submit?submittedProblemIndex=${P.cf_index}#cfstudio=${payload}`,
         "_blank", "noopener");
     };
   }
