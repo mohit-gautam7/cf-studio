@@ -43,7 +43,7 @@ Override any default with `OPENROUTER_MODEL` / `NVIDIA_MODEL` / `GROQ_MODEL`. A 
 
 **LeetCode-style problem workspace** — statement with rendered LaTeX on the left; Monaco editor (C++, Python, Java, JS, Rust, Go, Kotlin, C#; themes; autosave) on the right; test panel below.
 
-**Judge** — run against sample tests (verdicts: OK / WA / TLE / RE / CE), your own custom tests, or AI-generated tests. Executed via Piston's free public API — no compiler needed on your machine.
+**Judge** — run against sample tests (verdicts: OK / WA / TLE / RE / CE), your own custom tests, or AI-generated tests. No compiler needed: execution uses a free-judge failover chain (`EXECUTOR=auto`): self-hosted Piston if you set `PISTON_URL` → the free public [Wandbox](https://wandbox.org) API → your local toolchain. (The public Piston API went whitelist-only in Feb 2026, so Wandbox is the default free path.)
 
 **AI panel** (sees the full context: statement, constraints, your code, latest run results — never code alone):
 
@@ -57,6 +57,16 @@ Override any default with `OPENROUTER_MODEL` / `NVIDIA_MODEL` / `GROQ_MODEL`. A 
 **Stress testing** — one click: an AI-written brute force + AI-written random input generator run against your solution until a mismatch is found; the failing case is shown and can be added to your custom tests. (Seeded problems use their built-in reference solutions as the brute force.)
 
 **Practice tracking** — per-problem markdown+LaTeX notes, bookmarks with labels, local run history, Codeforces verdict import by handle, dashboard with daily streak, solved/attempted counts, weak-topic accuracy bars and your CF rating graph.
+
+## Browser extension — "Open in CF Studio"
+
+The `extension/` folder is a tiny Chrome/Brave/Edge extension that puts an **⚡ Open in CF Studio** button on every Codeforces problem page — one click imports the problem and opens your workspace.
+
+Install: open `chrome://extensions` (or `brave://extensions`) → enable *Developer mode* → *Load unpacked* → select the `extension/` folder. No-install alternative — save this as a bookmarklet:
+
+```
+javascript:location='http://localhost:8000/import?url='+encodeURIComponent(location.href)
+```
 
 ## Importing Codeforces problems
 

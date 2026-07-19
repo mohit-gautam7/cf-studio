@@ -39,8 +39,12 @@ def main():
     print("  CF Studio  ->  http://%s:%d" % ("localhost" if args.host in ("0.0.0.0", "127.0.0.1") else args.host, args.port))
     if seeded:
         print("  Seeded %d demo problems." % seeded)
-    print("  Judge   : %s" % (os.environ.get("PISTON_URL", "Piston public API (free)")
-                              if os.environ.get("EXECUTOR", "piston") == "piston" else "local toolchain"))
+    ex = os.environ.get("EXECUTOR", "auto")
+    if ex == "auto":
+        chain = (["piston"] if os.environ.get("PISTON_URL") else []) + ["wandbox", "local"]
+        print("  Judge   : auto (%s)" % " -> ".join(chain))
+    else:
+        print("  Judge   : %s" % ex)
     provs = ai.providers()
     print("  AI      : %s" % (" -> ".join("%s (%s)" % (p["name"], p["model"]) for p in provs)
                               if provs else "NOT configured — put keys in .env (free: openrouter.ai/keys, console.groq.com/keys, build.nvidia.com)"))
