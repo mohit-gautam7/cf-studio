@@ -250,10 +250,17 @@ def ask(context, instruction, temperature=0.4, max_tokens=3000, history=None, pr
 def generate_tests(problem, code=None, language=None, count=12):
     ctx = build_context(problem, code, language)
     instruction = (
-        "Generate %d diverse hidden test cases for this problem: boundary/minimum values, maximum "
-        "constraint sizes (keep inputs under 20 lines by using patterns only if the format allows, "
-        "otherwise moderate sizes), corner cases, duplicates, negatives if allowed, adversarial/hack-style cases, "
-        "and cases that break common wrong approaches (overflow, off-by-one, greedy failures). "
+        "Generate %d hidden test cases for this problem. MUST include these edge categories: "
+        "(1) the exact MINIMUM boundary (smallest allowed n and values, e.g. n=1); "
+        "(2) the exact MAXIMUM constraints (largest allowed values — keep the input text compact); "
+        "(3) all-equal / all-duplicate values; (4) sorted and reverse-sorted order; "
+        "(5) zeros and negatives when the constraints allow them; "
+        "(6) answers that overflow 32-bit int (sums or products past 2^31); "
+        "(7) off-by-one boundaries around any thresholds in the statement; "
+        "(8) 2-3 adversarial hack-style cases that defeat common wrong approaches (bad greedy, "
+        "wrong tie-breaking, missed corner condition). "
+        "If the user's current code is provided, READ IT and craft cases that hit ITS specific weak spots "
+        "(loop bounds, integer types, unhandled branches, tie handling). "
         "Respect the input format EXACTLY. Reply with ONLY a JSON array — no prose, no format example. "
         'Each element must be an object with keys "input" (the exact stdin, using \\n between lines), '
         '"expected" (your best computation of the correct output) and "reason" (short). '

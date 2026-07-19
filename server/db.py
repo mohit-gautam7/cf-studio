@@ -96,6 +96,14 @@ CREATE TABLE IF NOT EXISTS ai_chats (
   content TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS drafts (
+  user_id INTEGER NOT NULL,
+  problem_id INTEGER NOT NULL,
+  language TEXT NOT NULL,
+  code TEXT NOT NULL DEFAULT '',
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, problem_id, language)
+);
 CREATE INDEX IF NOT EXISTS idx_runs_user ON runs(user_id, problem_id);
 CREATE INDEX IF NOT EXISTS idx_ai_tests ON ai_tests(user_id, problem_id);
 """

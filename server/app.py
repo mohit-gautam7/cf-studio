@@ -1,4 +1,5 @@
 """HTTP server + API router. Stdlib http.server; JSON API under /api/*."""
+import concurrent.futures
 import json
 import os
 import re
@@ -227,10 +228,13 @@ def h_tests_validate(ctx):
                            (ctx["user"]["id"], pid)).fetchall()
     if not rows:
         raise ApiError(400, "no AI tests to validate")
+    ex = executor()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+        checked = list(pool.map(
+            lambda r: (r, ex.run(brute_lang, brute, stdin=r["input"], time_limit_ms=15000)), rows))
     validated, dropped = 0, 0
-    for r in rows:
-        res = executor().run(brute_lang, brute, stdin=r["input"], time_limit_ms=15000)
-        with db.connect() as con:
+    with db.connect() as con:
+        for r, res in checked:
             if res.error or res.compile_code or res.exit_code != 0 or res.signal:
                 con.execute("DELETE FROM ai_tests WHERE id=?", (r["id"],))
                 dropped += 1
@@ -340,6 +344,51 @@ def h_notes_put(ctx):
                     "ON CONFLICT(user_id, problem_id) DO UPDATE SET content=excluded.content, updated_at=excluded.updated_at",
                     (ctx["user"]["id"], pid, content[:100000], db.now()))
     return {"ok": True}
+
+
+def h_draft_get(ctx):
+    pid = int(ctx["query"].get("problem_id", ["0"])[0])
+    lang = (ctx["query"].get("language", [""])[0] or "")[:20]
+    with db.connect() as con:
+        row = con.execute("SELECT code, updated_at FROM drafts WHERE user_id=? AND problem_id=? AND language=?",
+                          (ctx["user"]["id"], pid, lang)).fetchone()
+    return {"code": row["code"] if row else None,
+            "updated_at": row["updated_at"] if row else None}
+
+
+def h_draft_put(ctx):
+    b = ctx["body"]
+    pid = int(b.get("problem_id") or 0)
+    lang = (b.get("language") or "")[:20]
+    code = (b.get("code") or "")[:100000]
+    with db.connect() as con:
+        con.execute("INSERT INTO drafts (user_id, problem_id, language, code, updated_at) VALUES (?,?,?,?,?) "
+                    "ON CONFLICT(user_id, problem_id, language) DO UPDATE SET code=excluded.code, updated_at=excluded.updated_at",
+                    (ctx["user"]["id"], pid, lang, code, db.now()))
+    return {"ok": True}
+
+
+def h_submitted(ctx):
+    """Record a snapshot when the user sends code to the Codeforces submit page."""
+    b = ctx["body"]
+    pid = int(b.get("problem_id") or 0)
+    _get_problem(pid)
+    with db.connect() as con:
+        con.execute("INSERT INTO runs (user_id, problem_id, kind, language, verdict, passed, total, detail, code, created_at) "
+                    "VALUES (?,?,?,?,?,0,0,'[]',?,?)",
+                    (ctx["user"]["id"], pid, "submit", (b.get("language") or "?")[:20],
+                     "SUBMITTED", (b.get("code") or "")[:100000], db.now()))
+    return {"ok": True}
+
+
+def h_run_code(ctx):
+    rid = int(ctx["match"].group(1))
+    with db.connect() as con:
+        row = con.execute("SELECT code, language FROM runs WHERE id=? AND user_id=?",
+                          (rid, ctx["user"]["id"])).fetchone()
+    if not row or not row["code"]:
+        raise ApiError(404, "no stored code for this run")
+    return {"code": row["code"], "language": row["language"]}
 
 
 def h_bookmarks(ctx):
@@ -461,6 +510,10 @@ ROUTES = [
     ("POST", r"^/api/ai/complexity$", h_complexity, True),
     ("POST", r"^/api/ai/explain$", h_explain, True),
     ("POST", r"^/api/stress$", h_stress, True),
+    ("GET", r"^/api/draft$", h_draft_get, True),
+    ("POST", r"^/api/draft$", h_draft_put, True),
+    ("POST", r"^/api/submitted$", h_submitted, True),
+    ("GET", r"^/api/runs/(\d+)/code$", h_run_code, True),
     ("GET", r"^/api/notes$", h_notes_get, True),
     ("POST", r"^/api/notes$", h_notes_put, True),
     ("GET", r"^/api/bookmarks$", h_bookmarks, True),
