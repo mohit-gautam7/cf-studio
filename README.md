@@ -60,9 +60,16 @@ Override any default with `OPENROUTER_MODEL` / `NVIDIA_MODEL` / `GROQ_MODEL`. A 
 
 ## Browser extension — "Open in CF Studio"
 
-The `extension/` folder is a tiny Chrome/Brave/Edge extension that puts an **⚡ Open in CF Studio** button on every Codeforces problem page — one click imports the problem and opens your workspace.
+The `extension/` folder is a tiny Chrome/Brave/Edge extension that does two things:
 
-Install: open `chrome://extensions` (or `brave://extensions`) → enable *Developer mode* → *Load unpacked* → select the `extension/` folder. No-install alternative — save this as a bookmarklet:
+- **⚡ Open in CF Studio** button on every Codeforces problem page — one click imports the problem and opens your workspace.
+- **Submit autofill** — when you press 🚀 Submit on CF in the workspace, the Codeforces submit page opens with your problem, code and language already filled. You review and click Submit yourself (auto-submitting is against CF rules, so that final click is always yours).
+
+Install: open `chrome://extensions` (or `brave://extensions`) → enable *Developer mode* → *Load unpacked* → select the `extension/` folder. After pulling updates, hit ↻ on the extension card.
+
+**Sharing with a friend:** they clone this repo and run their own CF Studio (`python main.py`) plus load the same extension — it points at `http://localhost:8000`, i.e. *their* server and *their* AI keys. If instead you host one instance (see *Going live*), they just edit the `CF_STUDIO` constant at the top of `extension/content.js` to your public URL and register an account there — but then everyone shares your AI quota. The autofill part works for anyone with the extension, either way.
+
+No-install alternative — save this as a bookmarklet:
 
 ```
 javascript:location='http://localhost:8000/import?url='+encodeURIComponent(location.href)
