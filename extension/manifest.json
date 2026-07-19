@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "CF Studio",
+  "version": "1.0",
+  "description": "Adds an 'Open in CF Studio' button on every Codeforces problem page.",
+  "content_scripts": [
+    {
+      "matches": ["https://codeforces.com/*", "https://*.codeforces.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
