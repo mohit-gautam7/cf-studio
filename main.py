@@ -41,8 +41,9 @@ def main():
         print("  Seeded %d demo problems." % seeded)
     print("  Judge   : %s" % (os.environ.get("PISTON_URL", "Piston public API (free)")
                               if os.environ.get("EXECUTOR", "piston") == "piston" else "local toolchain"))
-    print("  AI      : %s" % ("configured (%s)" % os.environ.get("AI_MODEL", "default free model")
-                              if ai.is_configured() else "NOT configured — set AI_API_KEY in .env (free: openrouter.ai/keys)"))
+    provs = ai.providers()
+    print("  AI      : %s" % (" -> ".join("%s (%s)" % (p["name"], p["model"]) for p in provs)
+                              if provs else "NOT configured — put keys in .env (free: openrouter.ai/keys, console.groq.com/keys, build.nvidia.com)"))
     print("  Ctrl+C to stop.")
     print("=" * 56)
     try:

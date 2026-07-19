@@ -21,22 +21,23 @@ Open **http://localhost:8000**, register an account (stored locally in SQLite) a
 
 ## Free AI setup (2 minutes)
 
-Grab a free key from **[openrouter.ai/keys](https://openrouter.ai/keys)** and put it in `.env`:
+Add **any or all** of these free keys to `.env` — CF Studio always tries the strongest model first and automatically falls back to the next provider on any error (rate limit, retired model, outage):
 
 ```
-AI_API_KEY=sk-or-v1-...
+OPENROUTER_API_KEY=sk-or-v1-...     # https://openrouter.ai/keys
+GROQ_API_KEY=gsk_...                # https://console.groq.com/keys
+NVIDIA_API_KEY=nvapi-...            # https://build.nvidia.com
 ```
 
-That's it — the default model (`nvidia/nemotron-3-ultra-550b-a55b:free`, a 550B frontier-reasoning model, $0 on OpenRouter) is already set. Any OpenAI-compatible provider works:
+Failover order (verified July 2026, all $0):
 
-| Provider | AI_BASE_URL | Example model (free tier, verified Jul 2026) |
-|---|---|---|
-| OpenRouter (default) | `https://openrouter.ai/api/v1` | `nvidia/nemotron-3-ultra-550b-a55b:free` (best), `nvidia/nemotron-3-super-120b-a12b:free` (faster), `google/gemma-4-31b-it:free` |
-| Groq | `https://api.groq.com/openai/v1` | `openai/gpt-oss-120b`, `llama-3.3-70b-versatile` |
-| NVIDIA NIM | `https://integrate.api.nvidia.com/v1` | key at build.nvidia.com; model id from the model page |
-| Ollama (fully local) | `http://localhost:11434/v1` | `qwen2.5-coder` — no key needed |
+| Priority | Provider | Default model | Context |
+|---|---|---|---|
+| 1 | OpenRouter | `nvidia/nemotron-3-ultra-550b-a55b:free` — 550B frontier reasoning | 1M tokens |
+| 2 | NVIDIA NIM | `nvidia/nemotron-3-ultra-550b-a55b` (same model, direct) | 1M tokens |
+| 3 | Groq | `openai/gpt-oss-120b` — fastest (~500 tps) | 131K tokens |
 
-Free model names change over time — check your provider's list and set `AI_MODEL` accordingly.
+Override any default with `OPENROUTER_MODEL` / `NVIDIA_MODEL` / `GROQ_MODEL`. A local Ollama (`AI_BASE_URL=http://localhost:11434/v1`, no key) is used first when set. A plain `AI_API_KEY` still works as the OpenRouter key. Free model names rotate over time — if a provider errors, the chain skips it; update the model name when convenient.
 
 ## What's inside
 
@@ -67,9 +68,9 @@ Paste any `codeforces.com/problemset/problem/...` or `/contest/.../problem/...` 
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `AI_API_KEY` | — | key for your AI provider |
-| `AI_BASE_URL` | OpenRouter | any OpenAI-compatible endpoint |
-| `AI_MODEL` | Nemotron 3 Ultra (free) | model name at that provider |
+| `OPENROUTER_API_KEY` / `GROQ_API_KEY` / `NVIDIA_API_KEY` | — | add any or all; automatic failover |
+| `OPENROUTER_MODEL` / `GROQ_MODEL` / `NVIDIA_MODEL` | best free models | per-provider model override |
+| `AI_BASE_URL` + `AI_MODEL` (+`AI_API_KEY`) | — | custom/local provider (Ollama), tried first |
 | `PISTON_URL` | public Piston | point at a self-hosted Piston for speed |
 | `EXECUTOR` | `piston` | `local` runs code with your local toolchain — **unsandboxed, your own code only** |
 | `PORT` / `HOST` | 8000 / 127.0.0.1 | server bind |
