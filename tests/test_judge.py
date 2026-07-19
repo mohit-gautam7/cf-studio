@@ -31,6 +31,18 @@ class TestCompare(unittest.TestCase):
         self.assertTrue(compare_output("0.3333333", "0.333333333333"))
         self.assertFalse(compare_output("0.5", "0.6"))
 
+    def test_case_insensitive_like_codeforces(self):
+        self.assertTrue(compare_output("YES\nNO", "yes\nno"))
+        self.assertTrue(compare_output("Yes", "yEs"))
+        self.assertTrue(compare_output("IMPOSSIBLE", "impossible"))
+        self.assertFalse(compare_output("YES", "NO"))
+
+    def test_lowercase_output_gets_ok_verdict(self):
+        ex = FakeExecutor({"2": ExecResult(stdout="yes\n"), "3": ExecResult(stdout="no\n")})
+        r = run_tests(ex, PROBLEM, "python", "x",
+                      [{"input": "2", "expected": "YES"}, {"input": "3", "expected": "NO"}])
+        self.assertEqual((r["verdict"], r["passed"]), ("OK", 2))
+
 
 class TestVerdicts(unittest.TestCase):
     def test_all_ok(self):
