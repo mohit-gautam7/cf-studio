@@ -7,13 +7,15 @@ MAX_WORKERS = 3
 
 
 def compare_output(expected, actual):
-    """Codeforces-style tolerant compare: token-wise, whitespace-insensitive."""
+    """Codeforces-style tolerant compare: token-wise, whitespace-insensitive,
+    CASE-insensitive (CF accepts "yEs"/"YES"/"no" interchangeably), with 1e-6
+    relative tolerance for numeric tokens."""
     et = (expected or "").split()
     at = (actual or "").split()
     if len(et) != len(at):
         return False
     for e, a in zip(et, at):
-        if e == a:
+        if e == a or e.lower() == a.lower():
             continue
         try:  # float tolerance 1e-6 when both parse as numbers
             if abs(float(e) - float(a)) <= 1e-6 * max(1.0, abs(float(e))):
