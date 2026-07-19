@@ -1,6 +1,8 @@
 /* Problem workspace: statement, Monaco editor, tests, AI panel, stress, notes */
 const PID = +location.pathname.split("/")[2];
 let P = null, editor = null, aiTests = [], customTests = [], lastResult = null, noteTimer = null;
+let lastStress = null;
+const busyFlags = { gen: false, validate: false, stress: false };
 
 const LANGS = [
   ["cpp", "C++17"], ["python", "Python 3"], ["java", "Java"], ["javascript", "JavaScript"],
@@ -49,7 +51,7 @@ async function boot() {
     toast(r.bookmark ? "bookmarked" : "bookmark removed");
   };
 
-  initLeftTabs(); initBottomTabs(); initAI(); initEditor(); initSplitter();
+  initLeftTabs(); initBottomTabs(); initAI(); initEditor(); initSplitter(); initResizers();
 
   document.getElementById("copy-btn").onclick = () =>
     copyText(getCode(), "Code copied — paste it into the Codeforces submit page");
@@ -94,6 +96,41 @@ function initSplitter() {
     const pct = Math.min(70, Math.max(20, (e.clientX / window.innerWidth) * 100));
     left.style.width = pct + "%";
   });
+}
+
+function initResizers() {
+  // bottom panel height
+  const bottom = document.getElementById("bottom");
+  const hDiv = document.getElementById("bottom-divider");
+  const savedH = +localStorage.getItem("cfs_bottom_h");
+  if (savedH >= 120) bottom.style.height = savedH + "px";
+  let dragH = false;
+  if (hDiv) {
+    hDiv.addEventListener("mousedown", () => { dragH = true; document.body.style.userSelect = "none"; });
+    window.addEventListener("mousemove", (e) => {
+      if (!dragH) return;
+      const h = Math.min(window.innerHeight * 0.65, Math.max(120, window.innerHeight - e.clientY));
+      bottom.classList.remove("collapsed");
+      bottom.style.height = h + "px";
+      localStorage.setItem("cfs_bottom_h", Math.round(h));
+    });
+  }
+  // AI drawer width
+  const ai = document.getElementById("ai-pane");
+  const aiHandle = document.getElementById("ai-handle");
+  const savedW = +localStorage.getItem("cfs_ai_w");
+  if (savedW >= 280) ai.style.width = savedW + "px";
+  let dragW = false;
+  if (aiHandle) {
+    aiHandle.addEventListener("mousedown", () => { dragW = true; document.body.style.userSelect = "none"; });
+    window.addEventListener("mousemove", (e) => {
+      if (!dragW) return;
+      const w = Math.min(680, Math.max(280, window.innerWidth - e.clientX));
+      ai.style.width = w + "px";
+      localStorage.setItem("cfs_ai_w", Math.round(w));
+    });
+  }
+  window.addEventListener("mouseup", () => { dragH = dragW = false; document.body.style.userSelect = ""; });
 }
 
 /* ---------------- left: statement / notes / submissions ---------------- */
@@ -191,7 +228,9 @@ let bottomTab = "samples";
 function initBottomTabs() {
   const tabs = document.getElementById("bottom-tabs");
   tabs.innerHTML = "";
-  const defs = [["samples", "Samples"], ["custom", "Custom"], ["ai", `AI Tests (${aiTests.length})`], ["results", "Results"], ["stress", "Stress"]];
+  const defs = [["samples", "Samples"], ["custom", "Custom"],
+    ["ai", `AI Tests (${aiTests.length})` + (busyFlags.gen || busyFlags.validate ? " ⏳" : "")],
+    ["results", "Results"], ["stress", "Stress" + (busyFlags.stress ? " ⏳" : "")]];
   for (const [id, label] of defs) {
     tabs.append(el("button", { class: "tab" + (bottomTab === id ? " active" : ""), onclick: () => { bottomTab = id; initBottomTabs(); } }, label));
   }
@@ -235,26 +274,33 @@ function drawCustom(body) {
 }
 
 function drawAITests(body) {
-  const gen = el("button", { class: "accent" }, "✨ Generate tests");
-  const validate = el("button", {}, "Validate with brute force");
+  const gen = el("button", { class: "accent" }, busyFlags.gen ? "Generating…" : "✨ Generate tests");
+  const validate = el("button", {}, busyFlags.validate ? "Validating…" : "Validate with brute force");
+  gen.disabled = busyFlags.gen;
+  validate.disabled = busyFlags.validate;
   const run = el("button", { class: "primary", onclick: () => runTests("ai") }, "▶ Run AI tests");
-  const count = el("select", {}, ...[8, 12, 16, 20].map(n => el("option", { value: n }, n + " tests")));
-  count.value = "12";
+  const count = el("select", {}, ...[6, 8, 12, 16].map(n => el("option", { value: n }, n + " tests")));
+  count.value = "8";
   gen.onclick = async () => {
-    busy(gen, true, "Generating…");
+    if (busyFlags.gen) return;
+    busyFlags.gen = true; initBottomTabs();
     try {
       const r = await API.post("/api/tests/generate", { problem_id: PID, count: +count.value, code: getCode(), language: lang() });
-      aiTests = r.tests; toast("generated " + aiTests.length + " tests"); initBottomTabs();
-    } catch (e) { toast(e.message, true); busy(gen, false); }
+      aiTests = r.tests; toast("generated " + aiTests.length + " tests");
+    } catch (e) { toast(e.message, true); }
+    finally { busyFlags.gen = false; initBottomTabs(); }
   };
   validate.onclick = async () => {
-    busy(validate, true, "Validating…");
+    if (busyFlags.validate) return;
+    busyFlags.validate = true; initBottomTabs();
     try {
       const r = await API.post("/api/tests/validate", { problem_id: PID });
-      aiTests = r.tests; toast(`validated ${r.validated}, dropped ${r.dropped}`); initBottomTabs();
-    } catch (e) { toast(e.message, true); busy(validate, false); }
+      aiTests = r.tests; toast(`validated ${r.validated}, dropped ${r.dropped}`);
+    } catch (e) { toast(e.message, true); }
+    finally { busyFlags.validate = false; initBottomTabs(); }
   };
-  body.append(el("div", { class: "row", style: "margin-bottom:10px" }, count, gen, validate, aiTests.length ? run : ""),
+  body.append(el("div", { class: "row", style: "margin-bottom:10px" }, count, gen, validate,
+    aiTests.length ? run : "", (busyFlags.gen || busyFlags.validate) ? el("span", { class: "spin" }) : ""),
     el("div", { class: "muted small", style: "margin-bottom:8px" },
       "AI-computed expected outputs are guesses until validated against a correct (brute force / reference) solution."));
   for (const t of aiTests) {
@@ -315,29 +361,42 @@ function drawResults(body) {
 function drawStress(body) {
   const iters = el("select", {}, ...[10, 20, 30, 50].map(n => el("option", { value: n }, n + " iterations")));
   iters.value = "20";
-  const btn = el("button", { class: "accent" }, "⚔ Run stress test");
+  const btn = el("button", { class: "accent" }, busyFlags.stress ? "Stress testing…" : "⚔ Run stress test");
+  btn.disabled = busyFlags.stress;
   const out = el("div", { class: "stress-box", style: "margin-top:10px" });
   body.append(el("div", { class: "row" }, iters, btn,
     el("span", { class: "muted small" }, P.has_reference ? "brute force: reference solution" : "brute force: AI-generated")), out);
+  const render = () => {
+    out.innerHTML = "";
+    if (busyFlags.stress) {
+      out.append(el("div", {}, el("span", { class: "spin" }), " generating tests, comparing against brute force — this can take a minute… (you can switch tabs, it keeps running)"));
+      return;
+    }
+    const s = lastStress;
+    if (!s) return;
+    if (s.status === "passed") {
+      out.append(el("div", {}, verdictChip("OK"), ` matched the brute force on all ${s.iterations} random tests (${s.brute_source} brute).`));
+    } else if (s.status === "mismatch") {
+      out.append(el("div", { class: "row" }, verdictChip(s.kind || "WA"), el("b", {}, `mismatch on iteration ${s.iteration}`),
+        el("button", { onclick: () => { customTests.unshift({ input: s.input, expected: (s.expected || "").trim() }); saveCustom(); toast("failing case added to Custom tests"); } }, "→ add to Custom")),
+        el("div", { class: "kv" }, "input"), el("pre", {}, s.input || ""),
+        el("div", { class: "kv" }, "expected (brute)"), el("pre", {}, s.expected || ""),
+        el("div", { class: "kv" }, "your output"), el("pre", {}, s.got || ""));
+    } else if (s.status === "error") {
+      out.append(el("div", { class: "muted" }, "stress failed: " + s.message));
+    } else {
+      out.append(el("div", {}, verdictChip("JUDGE_ERROR"), " " + (s.status || "") + ": "), el("pre", {}, s.message || ""));
+    }
+  };
+  render();
   btn.onclick = async () => {
-    busy(btn, true, "Stress testing…");
-    out.innerHTML = ""; out.append(el("div", {}, el("span", { class: "spin" }), " generating tests, comparing against brute force — this can take a minute…"));
+    if (busyFlags.stress) return;
+    busyFlags.stress = true; lastStress = null; initBottomTabs();
     try {
       const { stress: s } = await API.post("/api/stress", { problem_id: PID, code: getCode(), language: lang(), iterations: +iters.value });
-      out.innerHTML = "";
-      if (s.status === "passed") {
-        out.append(el("div", {}, verdictChip("OK"), ` matched the brute force on all ${s.iterations} random tests (${s.brute_source} brute).`));
-      } else if (s.status === "mismatch") {
-        out.append(el("div", { class: "row" }, verdictChip(s.kind || "WA"), el("b", {}, `mismatch on iteration ${s.iteration}`),
-          el("button", { onclick: () => { customTests.unshift({ input: s.input, expected: (s.expected || "").trim() }); saveCustom(); toast("failing case added to Custom tests"); } }, "→ add to Custom")),
-          el("div", { class: "kv" }, "input"), el("pre", {}, s.input || ""),
-          el("div", { class: "kv" }, "expected (brute)"), el("pre", {}, s.expected || ""),
-          el("div", { class: "kv" }, "your output"), el("pre", {}, s.got || ""));
-      } else {
-        out.append(el("div", {}, verdictChip("JUDGE_ERROR"), " " + (s.status || "") + ": "), el("pre", {}, s.message || ""));
-      }
-    } catch (e) { out.innerHTML = ""; out.append(el("div", { class: "muted" }, "stress failed: " + e.message)); }
-    finally { busy(btn, false); }
+      lastStress = s;
+    } catch (e) { lastStress = { status: "error", message: e.message }; }
+    finally { busyFlags.stress = false; initBottomTabs(); }
   };
 }
 
