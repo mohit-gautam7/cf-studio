@@ -2,8 +2,8 @@
 DeepSeek, Ollama, ...). Configured entirely by env:
 
   AI_BASE_URL  default https://openrouter.ai/api/v1
-  AI_API_KEY   your key (free keys: openrouter.ai, console.groq.com)
-  AI_MODEL     default deepseek/deepseek-chat-v3-0324:free
+  AI_API_KEY   your key (free keys: openrouter.ai, console.groq.com, build.nvidia.com)
+  AI_MODEL     default nvidia/nemotron-3-ultra-550b-a55b:free
   AI_MOCK=1    canned offline responses (used by the test suite)
 
 Every feature sends the full context bundle: statement, constraints, current
@@ -16,7 +16,7 @@ import urllib.error
 import urllib.request
 
 DEFAULT_BASE = "https://openrouter.ai/api/v1"
-DEFAULT_MODEL = "deepseek/deepseek-chat-v3-0324:free"
+DEFAULT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
 
 HINT_LEVELS = {
     1: "a tiny nudge (one sentence, no algorithm names, no spoilers)",
@@ -62,9 +62,11 @@ def chat(messages, temperature=0.4, max_tokens=3000):
     except Exception as e:
         raise AIError("AI provider unreachable: %s" % e)
     try:
-        return data["choices"][0]["message"]["content"]
+        content = data["choices"][0]["message"]["content"]
     except (KeyError, IndexError):
         raise AIError("unexpected AI response: %s" % json.dumps(data)[:400])
+    # reasoning models may inline their thinking; keep only the final answer
+    return re.sub(r"<think>.*?</think>", "", content or "", flags=re.DOTALL).strip()
 
 
 def _balanced_parse(text, start):
