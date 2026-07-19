@@ -168,6 +168,35 @@ def extract_json(text):
     return results[0]
 
 
+_PLACEHOLDERS = {"...", "..", ".", "", "input", "<input>", "test input"}
+
+
+def _valid_tests(arr):
+    out = []
+    for t in arr if isinstance(arr, list) else []:
+        if not isinstance(t, dict):
+            continue
+        inp = str(t.get("input", "")).strip()
+        if not inp or inp.lower() in _PLACEHOLDERS:
+            continue
+        out.append({"input": inp + "\n",
+                    "expected": str(t.get("expected", "")).strip(),
+                    "reason": str(t.get("reason", ""))[:300]})
+    return out
+
+
+def best_test_array(text):
+    """Scan ALL JSON arrays in a reply and keep the one with the most real tests.
+    Defends against models echoing the format example or placeholder values."""
+    text = re.sub(r"```(?:json)?", "", text or "")
+    best = []
+    for m in re.finditer(r"\[", text):
+        cand = _valid_tests(_balanced_parse(text, m.start()))
+        if len(cand) > len(best):
+            best = cand
+    return best
+
+
 def _html_to_text(html):
     t = re.sub(r"<br\s*/?>", "\n", html or "")
     t = re.sub(r"</(p|div|li)>", "\n", t)
@@ -225,22 +254,23 @@ def generate_tests(problem, code=None, language=None, count=12):
         "constraint sizes (keep inputs under 20 lines by using patterns only if the format allows, "
         "otherwise moderate sizes), corner cases, duplicates, negatives if allowed, adversarial/hack-style cases, "
         "and cases that break common wrong approaches (overflow, off-by-one, greedy failures). "
-        "Respect the input format EXACTLY. Reply with ONLY a JSON array like: "
-        '[{"input": "...", "expected": "...", "reason": "..."}] '
-        "where expected is your best computation of the correct output. If you cannot be certain of an "
-        "expected output, still include the test with your best attempt." % count
+        "Respect the input format EXACTLY. Reply with ONLY a JSON array — no prose, no format example. "
+        'Each element must be an object with keys "input" (the exact stdin, using \\n between lines), '
+        '"expected" (your best computation of the correct output) and "reason" (short). '
+        "Use REAL concrete values everywhere; never placeholders like \"...\"." % count
     )
-    reply = chat([{"role": "system", "content": SYSTEM}, {"role": "user", "content": ctx + "\n\n" + instruction}],
-                 temperature=0.7, max_tokens=2500, prefer="fast")
-    tests = extract_json(reply)
-    out = []
-    for t in tests if isinstance(tests, list) else []:
-        if isinstance(t, dict) and t.get("input"):
-            out.append({"input": str(t["input"]).strip() + "\n",
-                        "expected": str(t.get("expected", "")).strip(),
-                        "reason": str(t.get("reason", ""))[:300]})
+    msgs = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": ctx + "\n\n" + instruction}]
+    reply = chat(msgs, temperature=0.7, max_tokens=2500, prefer="fast")
+    out = best_test_array(reply)
+    if not out:  # one strict retry — some models echo the schema on the first try
+        msgs += [{"role": "assistant", "content": reply[:2000]},
+                 {"role": "user", "content": "That reply was unusable. Output ONLY the JSON array of test "
+                                             "objects now, with real concrete input values. No placeholders, "
+                                             "no explanations, no schema examples."}]
+        reply = chat(msgs, temperature=0.5, max_tokens=2500, prefer="fast")
+        out = best_test_array(reply)
     if not out:
-        raise AIError("model returned no usable tests")
+        raise AIError("model returned no usable tests — try Generate again (reply began: %.120s)" % (reply or ""))
     return out
 
 
